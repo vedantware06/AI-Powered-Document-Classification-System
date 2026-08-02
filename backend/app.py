@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+
 from backend.ocr import extract_text
 from backend.database import classify_document
 
@@ -13,31 +15,43 @@ app = FastAPI(
     description="Final Year AI Project"
 )
 
-# Create database
+# ==========================
+# CORS
+# ==========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==========================
+# Create Database
+# ==========================
+
 Base.metadata.create_all(bind=engine)
 
 
 @app.get("/")
 def home():
-    return {
-        "message": "Welcome"
-    }
+    return {"message": "Welcome"}
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "Running"
-    }
+    return {"status": "Running"}
 
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
 
-    # Create uploads folder
     os.makedirs("uploads", exist_ok=True)
 
-    # Save uploaded file
     file_path = os.path.join("uploads", file.filename)
 
     with open(file_path, "wb") as f:
@@ -46,14 +60,10 @@ async def upload_file(file: UploadFile = File(...)):
     # OCR
     text = extract_text(file_path)
 
-    print("=" * 50)
-    print(text)
-    print("=" * 50)
-
     # Classification
     category, confidence = classify_document(text)
 
-    # Save in Database
+    # Save Database
     db = SessionLocal()
 
     new_doc = Document(
