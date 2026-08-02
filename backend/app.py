@@ -1,11 +1,11 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.ocr import extract_text
-from backend.database import classify_document
+from ocr import extract_text
+from database import classify_document
 
-from backend.db import Base, engine, SessionLocal
-from backend.models import Document
+from db import Base, engine, SessionLocal
+from models import Document
 
 import os
 
@@ -24,6 +24,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://ai-powered-document-classification.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -39,12 +40,16 @@ Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def home():
-    return {"message": "Welcome"}
+    return {
+        "message": "AI Powered Document Classification System API Running"
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "Running"}
+    return {
+        "status": "Running"
+    }
 
 
 @app.post("/upload")
@@ -74,6 +79,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     db.add(new_doc)
     db.commit()
+    db.refresh(new_doc)
     db.close()
 
     return {
