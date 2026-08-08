@@ -24,20 +24,26 @@ function App() {
     history.length > 0
       ? (
           history.reduce(
-            (sum, item) => sum + parseInt(item.confidence || 0),
+            (sum, item) =>
+              sum + parseInt(item.confidence || 0),
             0
           ) / history.length
         ).toFixed(1)
       : 0;
+
 
   // ==========================
   // File Selection
   // ==========================
 
   const handleFileChange = (e) => {
+
     setFile(e.target.files[0]);
+
     setResult(null);
+
   };
+
 
   // ==========================
   // Upload Document
@@ -46,20 +52,29 @@ function App() {
   const uploadFile = async () => {
 
     if (!file) {
+
       alert("Please select a file first!");
+
       return;
+
     }
 
     setLoading(true);
 
     const formData = new FormData();
+
     formData.append("file", file);
+
 
     try {
 
       console.log("Uploading:", file.name);
 
-      // Upload document
+
+      // ==========================
+      // Upload
+      // ==========================
+
       const response = await axios.post(
         `${API_URL}/upload`,
         formData,
@@ -71,77 +86,92 @@ function App() {
         }
       );
 
-      console.log("Upload Response:", response.data);
 
-      // Show classification result
+      console.log(
+        "Upload Response:",
+        response.data
+      );
+
+
+      // Show Result
+
       setResult(response.data);
 
-      // Get history
+
+      // ==========================
+      // Get History
+      // ==========================
+
       try {
 
-        const historyResponse = await axios.get(
-          `${API_URL}/history`,
-          {
-            timeout: 30000
-          }
+        const historyResponse =
+          await axios.get(
+            `${API_URL}/history`,
+            {
+              timeout: 30000
+            }
+          );
+
+
+        console.log(
+          "History:",
+          historyResponse.data
         );
 
-        console.log("History Response:", historyResponse.data);
 
-        setHistory(historyResponse.data);
+        setHistory(
+          historyResponse.data
+        );
+
 
       } catch (historyError) {
 
-        console.error("History Error:", historyError);
+        console.error(
+          "History Error:",
+          historyError
+        );
 
-        if (historyError.response) {
-          alert(
-            "Document uploaded successfully, but History loading failed.\n\n" +
-            "Backend Response: " +
-            JSON.stringify(historyError.response.data)
-          );
-        } else {
-          alert(
-            "Document uploaded successfully, but History loading failed.\n\n" +
-            historyError.message
-          );
-        }
+        alert(
+          "Document uploaded successfully, but History loading failed."
+        );
+
       }
+
 
     } catch (error) {
 
-      console.error("UPLOAD ERROR:", error);
+      console.error(
+        "UPLOAD ERROR:",
+        error
+      );
 
-      // Backend returned an error
+
       if (error.response) {
-
-        console.error("Status:", error.response.status);
-        console.error("Data:", error.response.data);
 
         alert(
           "Backend Error\n\n" +
           "Status: " +
           error.response.status +
           "\n\n" +
-          JSON.stringify(error.response.data)
+          JSON.stringify(
+            error.response.data
+          )
         );
 
       }
 
-      // Request sent but no response
-      else if (error.request) {
 
-        console.error("No response from backend:", error.request);
+      else if (error.request) {
 
         alert(
           "Backend is not responding!\n\n" +
-          "Please make sure this is running:\n\n" +
+          "Please start backend using:\n\n" +
           "uvicorn app:app --reload"
         );
 
       }
 
-      // Other error
+
       else {
 
         alert(
@@ -156,7 +186,9 @@ function App() {
       setLoading(false);
 
     }
+
   };
+
 
   // ==========================
   // UI
@@ -177,7 +209,10 @@ function App() {
       }}
     >
 
-      {/* TITLE */}
+
+      {/* ==========================
+          TITLE
+      ========================== */}
 
       <h1
         style={{
@@ -188,11 +223,15 @@ function App() {
         📄 AI Powered Document Classification System
       </h1>
 
+
       <p>
         Upload your document and classify it using AI
       </p>
 
-      {/* FILE INPUT */}
+
+      {/* ==========================
+          FILE INPUT
+      ========================== */}
 
       <input
         type="file"
@@ -203,7 +242,10 @@ function App() {
         }}
       />
 
-      {/* SELECTED FILE */}
+
+      {/* ==========================
+          SELECTED FILE
+      ========================== */}
 
       {file && (
 
@@ -218,7 +260,10 @@ function App() {
 
       )}
 
-      {/* UPLOAD BUTTON */}
+
+      {/* ==========================
+          UPLOAD BUTTON
+      ========================== */}
 
       <button
         onClick={uploadFile}
@@ -226,21 +271,28 @@ function App() {
         style={{
           marginTop: "20px",
           padding: "12px 30px",
-          background: loading ? "#64748b" : "#2563eb",
+          background:
+            loading
+              ? "#64748b"
+              : "#2563eb",
           color: "white",
           border: "none",
           borderRadius: "8px",
           fontSize: "16px",
-          cursor: loading ? "not-allowed" : "pointer"
+          cursor:
+            loading
+              ? "not-allowed"
+              : "pointer"
         }}
       >
 
         {loading
-          ? "Uploading..."
+          ? "Processing..."
           : "Upload Document"
         }
 
       </button>
+
 
       {/* ==========================
           DASHBOARD
@@ -261,15 +313,18 @@ function App() {
           value={totalDocuments}
         />
 
+
         <Card
           title="📂 Categories"
           value={categories}
         />
 
+
         <Card
           title="🎯 Accuracy"
           value={`${avgConfidence}%`}
         />
+
 
         <Card
           title="🤖 AI Status"
@@ -278,9 +333,10 @@ function App() {
 
       </div>
 
-      {/* ==========================
-          RESULT
-      ========================== */}
+
+      {/* =================================================
+          CLASSIFICATION RESULT
+      ================================================= */}
 
       {result && (
 
@@ -296,27 +352,100 @@ function App() {
 
           <h2
             style={{
-              color: "#38bdf8"
+              color: "#38bdf8",
+              textAlign: "center"
             }}
           >
-            Classification Result
+            📊 Classification Result
           </h2>
 
-          <p>
-            📄 <b>Filename:</b> {result.filename}
-          </p>
+
+          {/* Filename */}
 
           <p>
-            📂 <b>Category:</b> {result.category}
+            📄 <b>Filename:</b>{" "}
+            {result.filename}
           </p>
+
+
+          {/* Category */}
 
           <p>
-            🎯 <b>Confidence:</b> {result.confidence}
+            📂 <b>Category:</b>{" "}
+            {result.category}
           </p>
 
-          <h3>
+
+          {/* Confidence */}
+
+          <p>
+            🎯 <b>Confidence:</b>{" "}
+            {result.confidence}
+          </p>
+
+
+          {/* Verification */}
+
+          <p>
+            ✅ <b>Verification:</b>{" "}
+            {result.verification}
+          </p>
+
+
+          {/* Fraud Detection */}
+
+          <p>
+            🛡️ <b>Fraud Detection:</b>{" "}
+            {result.fraud_status}
+          </p>
+
+
+          {/* ==========================
+              AI SUMMARY
+          ========================== */}
+
+          <div
+            style={{
+              marginTop: "25px",
+              background: "#0f172a",
+              padding: "20px",
+              borderRadius: "10px"
+            }}
+          >
+
+            <h3
+              style={{
+                color: "#38bdf8"
+              }}
+            >
+              📝 AI Auto Summary
+            </h3>
+
+
+            <p
+              style={{
+                lineHeight: "1.6"
+              }}
+            >
+              {result.summary ||
+                "No summary available."}
+            </p>
+
+          </div>
+
+
+          {/* ==========================
+              OCR TEXT
+          ========================== */}
+
+          <h3
+            style={{
+              marginTop: "25px"
+            }}
+          >
             📜 Extracted Text
           </h3>
+
 
           <div
             style={{
@@ -324,11 +453,13 @@ function App() {
               padding: "15px",
               maxHeight: "300px",
               overflowY: "auto",
-              whiteSpace: "pre-wrap"
+              whiteSpace: "pre-wrap",
+              borderRadius: "8px"
             }}
           >
 
-            {result.text || "No text extracted."}
+            {result.text ||
+              "No text extracted."}
 
           </div>
 
@@ -336,9 +467,10 @@ function App() {
 
       )}
 
-      {/* ==========================
+
+      {/* =================================================
           HISTORY
-      ========================== */}
+      ================================================= */}
 
       {history.length > 0 && (
 
@@ -362,6 +494,7 @@ function App() {
             📂 Upload History
           </h2>
 
+
           <table
             style={{
               width: "100%",
@@ -377,14 +510,26 @@ function App() {
                 }}
               >
 
-                <th>ID</th>
-                <th>Filename</th>
-                <th>Category</th>
-                <th>Confidence</th>
+                <th style={{ padding: "10px" }}>
+                  ID
+                </th>
+
+                <th style={{ padding: "10px" }}>
+                  Filename
+                </th>
+
+                <th style={{ padding: "10px" }}>
+                  Category
+                </th>
+
+                <th style={{ padding: "10px" }}>
+                  Confidence
+                </th>
 
               </tr>
 
             </thead>
+
 
             <tbody>
 
@@ -397,13 +542,24 @@ function App() {
                   }}
                 >
 
-                  <td>{item.id}</td>
+                  <td style={{ padding: "10px" }}>
+                    {item.id}
+                  </td>
 
-                  <td>{item.filename}</td>
 
-                  <td>{item.category}</td>
+                  <td style={{ padding: "10px" }}>
+                    {item.filename}
+                  </td>
 
-                  <td>{item.confidence}</td>
+
+                  <td style={{ padding: "10px" }}>
+                    {item.category}
+                  </td>
+
+
+                  <td style={{ padding: "10px" }}>
+                    {item.confidence}
+                  </td>
 
                 </tr>
 
@@ -420,12 +576,13 @@ function App() {
     </div>
 
   );
+
 }
 
 
-// ==========================
-// Card Component
-// ==========================
+// =========================================================
+// CARD COMPONENT
+// =========================================================
 
 function Card({ title, value }) {
 
@@ -449,6 +606,7 @@ function Card({ title, value }) {
         {value}
       </h2>
 
+
       <p>
         {title}
       </p>
@@ -456,6 +614,8 @@ function Card({ title, value }) {
     </div>
 
   );
+
 }
+
 
 export default App;
