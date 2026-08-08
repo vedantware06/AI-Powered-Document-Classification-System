@@ -9,12 +9,28 @@ import pytesseract
 # TESSERACT OCR CONFIGURATION
 # =========================================================
 
-# First try to find Tesseract from system PATH
-tesseract_path = shutil.which("tesseract")
+# ---------------------------------------------------------
+# 1. Check TESSERACT_CMD environment variable
+# ---------------------------------------------------------
 
-# If running on Windows and Tesseract is installed
-# in the default location, use that path.
+tesseract_path = os.getenv("TESSERACT_CMD")
+
+
+# ---------------------------------------------------------
+# 2. If environment variable is not available,
+#    search Tesseract from system PATH
+# ---------------------------------------------------------
+
 if not tesseract_path:
+
+    tesseract_path = shutil.which("tesseract")
+
+
+# ---------------------------------------------------------
+# 3. Windows default Tesseract location
+# ---------------------------------------------------------
+
+if not tesseract_path and os.name == "nt":
 
     windows_tesseract_path = (
         r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -25,7 +41,10 @@ if not tesseract_path:
         tesseract_path = windows_tesseract_path
 
 
-# Set Tesseract path if found
+# ---------------------------------------------------------
+# 4. Configure Tesseract
+# ---------------------------------------------------------
+
 if tesseract_path:
 
     pytesseract.pytesseract.tesseract_cmd = tesseract_path
@@ -37,16 +56,40 @@ if tesseract_path:
 else:
 
     print(
-        "⚠ Tesseract executable not found. "
-        "OCR may not work until Tesseract is installed."
+        "⚠ Tesseract executable not found."
+    )
+
+    print(
+        "⚠ Normal PDF text extraction will still work."
+    )
+
+    print(
+        "⚠ OCR for scanned documents/images may not work."
     )
 
 
 # =========================================================
-# EXTRACT TEXT
+# EXTRACT TEXT FUNCTION
 # =========================================================
 
 def extract_text(file_path):
+
+    # -----------------------------------------------------
+    # Check file exists
+    # -----------------------------------------------------
+
+    if not os.path.exists(file_path):
+
+        print(
+            f"❌ File not found: {file_path}"
+        )
+
+        return ""
+
+
+    # -----------------------------------------------------
+    # Get file extension
+    # -----------------------------------------------------
 
     ext = os.path.splitext(
         file_path
@@ -54,7 +97,7 @@ def extract_text(file_path):
 
 
     # =====================================================
-    # PDF
+    # PDF PROCESSING
     # =====================================================
 
     if ext == ".pdf":
@@ -85,7 +128,7 @@ def extract_text(file_path):
 
 
             # -------------------------------------------------
-            # If normal text exists
+            # If normal PDF text exists
             # -------------------------------------------------
 
             if text.strip():
@@ -100,20 +143,55 @@ def extract_text(file_path):
 
 
             # -------------------------------------------------
-            # Scanned PDF OCR
+            # Scanned PDF
             # -------------------------------------------------
 
             print(
-                "⚠ No text found. Starting PDF OCR..."
+                "⚠ No selectable text found."
             )
+
+            print(
+                "🔍 Starting PDF OCR..."
+            )
+
+
+            # -------------------------------------------------
+            # Check whether Tesseract is available
+            # -------------------------------------------------
+
+            if not tesseract_path:
+
+                doc.close()
+
+                print(
+                    "❌ Tesseract is not available."
+                )
+
+                return ""
+
 
             ocr_text = ""
 
 
-            for page in doc:
+            # -------------------------------------------------
+            # OCR each PDF page
+            # -------------------------------------------------
+
+            for page_number, page in enumerate(
+                doc,
+                start=1
+            ):
+
+                print(
+                    f"🔍 OCR processing page {page_number}..."
+                )
+
 
                 pix = page.get_pixmap(
-                    matrix=fitz.Matrix(2, 2)
+                    matrix=fitz.Matrix(
+                        2,
+                        2
+                    )
                 )
 
 
@@ -127,8 +205,10 @@ def extract_text(file_path):
                 )
 
 
-                page_text = pytesseract.image_to_string(
-                    image
+                page_text = (
+                    pytesseract.image_to_string(
+                        image
+                    )
                 )
 
 
@@ -171,13 +251,47 @@ def extract_text(file_path):
 
         try:
 
+            # -------------------------------------------------
+            # Check Tesseract
+            # -------------------------------------------------
+
+            if not tesseract_path:
+
+                print(
+                    "❌ Tesseract is not available."
+                )
+
+                return ""
+
+
+            # -------------------------------------------------
+            # Open image
+            # -------------------------------------------------
+
             image = Image.open(
                 file_path
             )
 
 
-            text = pytesseract.image_to_string(
-                image
+            # -------------------------------------------------
+            # Convert image to RGB
+            # -------------------------------------------------
+
+            if image.mode != "RGB":
+
+                image = image.convert(
+                    "RGB"
+                )
+
+
+            # -------------------------------------------------
+            # OCR
+            # -------------------------------------------------
+
+            text = (
+                pytesseract.image_to_string(
+                    image
+                )
             )
 
 
@@ -206,7 +320,7 @@ def extract_text(file_path):
     else:
 
         print(
-            "⚠ Unsupported file format"
+            f"⚠ Unsupported file format: {ext}"
         )
 
         return ""
