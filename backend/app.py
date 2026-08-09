@@ -35,8 +35,14 @@ app.add_middleware(
     CORSMiddleware,
 
     allow_origins=[
+        # Local Frontend
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+
+        # Render Frontend
+        "https://ai-powered-document-classification.onrender.com",
+
+        # Vercel Frontend
         "https://ai-powered-document-classification.vercel.app"
     ],
 
