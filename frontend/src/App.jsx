@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_URL = "https://ai-powered-document-classification-system.onrender.com";
+const API_URL = "https://ai-document-classification-backend.onrender.com";
 
 function App() {
 
