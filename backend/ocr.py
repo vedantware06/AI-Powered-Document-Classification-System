@@ -1,7 +1,7 @@
 import fitz
 import os
 import shutil
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import pytesseract
 
 
@@ -9,26 +9,10 @@ import pytesseract
 # TESSERACT OCR CONFIGURATION
 # =========================================================
 
-# ---------------------------------------------------------
-# 1. Check TESSERACT_CMD environment variable
-# ---------------------------------------------------------
-
 tesseract_path = os.getenv("TESSERACT_CMD")
 
-
-# ---------------------------------------------------------
-# 2. If environment variable is not available,
-#    search Tesseract from system PATH
-# ---------------------------------------------------------
-
 if not tesseract_path:
-
     tesseract_path = shutil.which("tesseract")
-
-
-# ---------------------------------------------------------
-# 3. Windows default Tesseract location
-# ---------------------------------------------------------
 
 if not tesseract_path and os.name == "nt":
 
@@ -37,13 +21,8 @@ if not tesseract_path and os.name == "nt":
     )
 
     if os.path.exists(windows_tesseract_path):
-
         tesseract_path = windows_tesseract_path
 
-
-# ---------------------------------------------------------
-# 4. Configure Tesseract
-# ---------------------------------------------------------
 
 if tesseract_path:
 
@@ -60,12 +39,200 @@ else:
     )
 
     print(
-        "⚠ Normal PDF text extraction will still work."
-    )
-
-    print(
         "⚠ OCR for scanned documents/images may not work."
     )
+
+
+# =========================================================
+# IMAGE PREPROCESSING
+# =========================================================
+
+def preprocess_image(image):
+
+    try:
+
+        # -------------------------------------------------
+        # Convert to RGB
+        # -------------------------------------------------
+
+        if image.mode != "RGB":
+
+            image = image.convert("RGB")
+
+
+        # -------------------------------------------------
+        # Increase image size
+        # -------------------------------------------------
+
+        width, height = image.size
+
+        if width < 1800:
+
+            scale = 2
+
+            image = image.resize(
+                (
+                    width * scale,
+                    height * scale
+                ),
+                Image.Resampling.LANCZOS
+            )
+
+
+        # -------------------------------------------------
+        # Convert to grayscale
+        # -------------------------------------------------
+
+        gray = ImageOps.grayscale(image)
+
+
+        # -------------------------------------------------
+        # Improve contrast
+        # -------------------------------------------------
+
+        gray = ImageOps.autocontrast(
+            gray
+        )
+
+
+        # -------------------------------------------------
+        # Increase contrast
+        # -------------------------------------------------
+
+        contrast = ImageEnhance.Contrast(
+            gray
+        )
+
+        gray = contrast.enhance(
+            2.0
+        )
+
+
+        # -------------------------------------------------
+        # Sharpen image
+        # -------------------------------------------------
+
+        gray = gray.filter(
+            ImageFilter.SHARPEN
+        )
+
+
+        # -------------------------------------------------
+        # Threshold / black-white conversion
+        # -------------------------------------------------
+
+        threshold = 160
+
+        processed = gray.point(
+            lambda pixel:
+            255 if pixel > threshold
+            else 0
+        )
+
+
+        return processed
+
+
+    except Exception as e:
+
+        print(
+            "⚠ Image preprocessing error:",
+            e
+        )
+
+        return image
+
+
+# =========================================================
+# OCR FUNCTION
+# =========================================================
+
+def perform_ocr(image):
+
+    if not tesseract_path:
+
+        print(
+            "❌ Tesseract is not available."
+        )
+
+        return ""
+
+
+    try:
+
+        # -------------------------------------------------
+        # Preprocess image
+        # -------------------------------------------------
+
+        processed_image = preprocess_image(
+            image
+        )
+
+
+        # -------------------------------------------------
+        # OCR configuration
+        # -------------------------------------------------
+
+        config = (
+            "--oem 3 "
+            "--psm 6"
+        )
+
+
+        # -------------------------------------------------
+        # First OCR attempt
+        # -------------------------------------------------
+
+        text = pytesseract.image_to_string(
+            processed_image,
+            config=config
+        )
+
+
+        # -------------------------------------------------
+        # If very little text found,
+        # try original image also
+        # -------------------------------------------------
+
+        if len(text.strip()) < 10:
+
+            print(
+                "⚠ Preprocessed OCR produced little text."
+            )
+
+            print(
+                "🔄 Trying original image..."
+            )
+
+
+            original_text = (
+                pytesseract.image_to_string(
+                    image,
+                    config="--oem 3 --psm 6"
+                )
+            )
+
+
+            if len(
+                original_text.strip()
+            ) > len(
+                text.strip()
+            ):
+
+                text = original_text
+
+
+        return text.strip()
+
+
+    except Exception as e:
+
+        print(
+            "❌ OCR processing error:",
+            e
+        )
+
+        return ""
 
 
 # =========================================================
@@ -88,7 +255,7 @@ def extract_text(file_path):
 
 
     # -----------------------------------------------------
-    # Get file extension
+    # Get extension
     # -----------------------------------------------------
 
     ext = os.path.splitext(
@@ -128,7 +295,7 @@ def extract_text(file_path):
 
 
             # -------------------------------------------------
-            # If normal PDF text exists
+            # If normal text exists
             # -------------------------------------------------
 
             if text.strip():
@@ -151,13 +318,9 @@ def extract_text(file_path):
             )
 
             print(
-                "🔍 Starting PDF OCR..."
+                "🔍 Starting enhanced PDF OCR..."
             )
 
-
-            # -------------------------------------------------
-            # Check whether Tesseract is available
-            # -------------------------------------------------
 
             if not tesseract_path:
 
@@ -174,7 +337,7 @@ def extract_text(file_path):
 
 
             # -------------------------------------------------
-            # OCR each PDF page
+            # OCR each page
             # -------------------------------------------------
 
             for page_number, page in enumerate(
@@ -187,11 +350,13 @@ def extract_text(file_path):
                 )
 
 
+                # Higher resolution
                 pix = page.get_pixmap(
                     matrix=fitz.Matrix(
-                        2,
-                        2
-                    )
+                        3,
+                        3
+                    ),
+                    alpha=False
                 )
 
 
@@ -205,10 +370,8 @@ def extract_text(file_path):
                 )
 
 
-                page_text = (
-                    pytesseract.image_to_string(
-                        image
-                    )
+                page_text = perform_ocr(
+                    image
                 )
 
 
@@ -222,7 +385,7 @@ def extract_text(file_path):
 
 
             print(
-                "✅ Scanned PDF OCR completed"
+                "✅ Enhanced scanned PDF OCR completed"
             )
 
 
@@ -251,10 +414,6 @@ def extract_text(file_path):
 
         try:
 
-            # -------------------------------------------------
-            # Check Tesseract
-            # -------------------------------------------------
-
             if not tesseract_path:
 
                 print(
@@ -273,31 +432,35 @@ def extract_text(file_path):
             )
 
 
-            # -------------------------------------------------
-            # Convert image to RGB
-            # -------------------------------------------------
-
-            if image.mode != "RGB":
-
-                image = image.convert(
-                    "RGB"
-                )
-
-
-            # -------------------------------------------------
-            # OCR
-            # -------------------------------------------------
-
-            text = (
-                pytesseract.image_to_string(
-                    image
-                )
-            )
-
-
             print(
-                "✅ Image OCR completed"
+                f"📐 Original image size: {image.size}"
             )
+
+
+            # -------------------------------------------------
+            # Enhanced OCR
+            # -------------------------------------------------
+
+            text = perform_ocr(
+                image
+            )
+
+
+            if text.strip():
+
+                print(
+                    "✅ Enhanced Image OCR completed"
+                )
+
+                print(
+                    f"📝 Extracted characters: {len(text)}"
+                )
+
+            else:
+
+                print(
+                    "⚠ No readable text detected."
+                )
 
 
             return text.strip()
@@ -306,7 +469,7 @@ def extract_text(file_path):
         except Exception as e:
 
             print(
-                "❌ OCR Error:",
+                "❌ Image OCR Error:",
                 e
             )
 
