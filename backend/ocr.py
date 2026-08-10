@@ -1,6 +1,7 @@
 import fitz
 import os
 import shutil
+
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import pytesseract
 
@@ -9,21 +10,37 @@ import pytesseract
 # TESSERACT OCR CONFIGURATION
 # =========================================================
 
+# First check environment variable
 tesseract_path = os.getenv("TESSERACT_CMD")
 
+
+# Second check system PATH
 if not tesseract_path:
     tesseract_path = shutil.which("tesseract")
 
+
+# Third: Linux / Render path
+if not tesseract_path and os.path.exists("/usr/bin/tesseract"):
+    tesseract_path = "/usr/bin/tesseract"
+
+
+# Fourth: Windows path
 if not tesseract_path and os.name == "nt":
 
-    windows_tesseract_path = (
-        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-    )
+    windows_paths = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
+    ]
 
-    if os.path.exists(windows_tesseract_path):
-        tesseract_path = windows_tesseract_path
+    for path in windows_paths:
+
+        if os.path.exists(path):
+
+            tesseract_path = path
+            break
 
 
+# Configure Tesseract
 if tesseract_path:
 
     pytesseract.pytesseract.tesseract_cmd = tesseract_path
@@ -35,7 +52,7 @@ if tesseract_path:
 else:
 
     print(
-        "⚠ Tesseract executable not found."
+        "❌ Tesseract executable not found."
     )
 
     print(
@@ -51,19 +68,13 @@ def preprocess_image(image):
 
     try:
 
-        # -------------------------------------------------
         # Convert to RGB
-        # -------------------------------------------------
-
         if image.mode != "RGB":
 
             image = image.convert("RGB")
 
 
-        # -------------------------------------------------
         # Increase image size
-        # -------------------------------------------------
-
         width, height = image.size
 
         if width < 1800:
@@ -79,48 +90,27 @@ def preprocess_image(image):
             )
 
 
-        # -------------------------------------------------
-        # Convert to grayscale
-        # -------------------------------------------------
-
+        # Grayscale
         gray = ImageOps.grayscale(image)
 
 
-        # -------------------------------------------------
-        # Improve contrast
-        # -------------------------------------------------
-
-        gray = ImageOps.autocontrast(
-            gray
-        )
+        # Auto contrast
+        gray = ImageOps.autocontrast(gray)
 
 
-        # -------------------------------------------------
         # Increase contrast
-        # -------------------------------------------------
+        contrast = ImageEnhance.Contrast(gray)
 
-        contrast = ImageEnhance.Contrast(
-            gray
-        )
-
-        gray = contrast.enhance(
-            2.0
-        )
+        gray = contrast.enhance(2.0)
 
 
-        # -------------------------------------------------
-        # Sharpen image
-        # -------------------------------------------------
-
+        # Sharpen
         gray = gray.filter(
             ImageFilter.SHARPEN
         )
 
 
-        # -------------------------------------------------
-        # Threshold / black-white conversion
-        # -------------------------------------------------
-
+        # Threshold
         threshold = 160
 
         processed = gray.point(
@@ -160,40 +150,22 @@ def perform_ocr(image):
 
     try:
 
-        # -------------------------------------------------
         # Preprocess image
-        # -------------------------------------------------
-
-        processed_image = preprocess_image(
-            image
-        )
+        processed_image = preprocess_image(image)
 
 
-        # -------------------------------------------------
         # OCR configuration
-        # -------------------------------------------------
-
-        config = (
-            "--oem 3 "
-            "--psm 6"
-        )
+        config = "--oem 3 --psm 6"
 
 
-        # -------------------------------------------------
         # First OCR attempt
-        # -------------------------------------------------
-
         text = pytesseract.image_to_string(
             processed_image,
             config=config
         )
 
 
-        # -------------------------------------------------
-        # If very little text found,
-        # try original image also
-        # -------------------------------------------------
-
+        # Try original image if little text found
         if len(text.strip()) < 10:
 
             print(
@@ -204,20 +176,13 @@ def perform_ocr(image):
                 "🔄 Trying original image..."
             )
 
-
-            original_text = (
-                pytesseract.image_to_string(
-                    image,
-                    config="--oem 3 --psm 6"
-                )
+            original_text = pytesseract.image_to_string(
+                image,
+                config=config
             )
 
 
-            if len(
-                original_text.strip()
-            ) > len(
-                text.strip()
-            ):
+            if len(original_text.strip()) > len(text.strip()):
 
                 text = original_text
 
@@ -241,10 +206,7 @@ def perform_ocr(image):
 
 def extract_text(file_path):
 
-    # -----------------------------------------------------
     # Check file exists
-    # -----------------------------------------------------
-
     if not os.path.exists(file_path):
 
         print(
@@ -254,10 +216,7 @@ def extract_text(file_path):
         return ""
 
 
-    # -----------------------------------------------------
     # Get extension
-    # -----------------------------------------------------
-
     ext = os.path.splitext(
         file_path
     )[1].lower()
@@ -271,17 +230,12 @@ def extract_text(file_path):
 
         try:
 
-            doc = fitz.open(
-                file_path
-            )
+            doc = fitz.open(file_path)
 
             text = ""
 
 
-            # -------------------------------------------------
-            # First try normal PDF text extraction
-            # -------------------------------------------------
-
+            # Normal PDF text extraction
             for page in doc:
 
                 page_text = page.get_text()
@@ -294,10 +248,7 @@ def extract_text(file_path):
                     )
 
 
-            # -------------------------------------------------
-            # If normal text exists
-            # -------------------------------------------------
-
+            # If selectable text exists
             if text.strip():
 
                 doc.close()
@@ -309,10 +260,7 @@ def extract_text(file_path):
                 return text.strip()
 
 
-            # -------------------------------------------------
             # Scanned PDF
-            # -------------------------------------------------
-
             print(
                 "⚠ No selectable text found."
             )
@@ -336,10 +284,7 @@ def extract_text(file_path):
             ocr_text = ""
 
 
-            # -------------------------------------------------
             # OCR each page
-            # -------------------------------------------------
-
             for page_number, page in enumerate(
                 doc,
                 start=1
@@ -350,7 +295,7 @@ def extract_text(file_path):
                 )
 
 
-                # Higher resolution
+                # High resolution rendering
                 pix = page.get_pixmap(
                     matrix=fitz.Matrix(
                         3,
@@ -423,10 +368,7 @@ def extract_text(file_path):
                 return ""
 
 
-            # -------------------------------------------------
             # Open image
-            # -------------------------------------------------
-
             image = Image.open(
                 file_path
             )
@@ -437,10 +379,7 @@ def extract_text(file_path):
             )
 
 
-            # -------------------------------------------------
-            # Enhanced OCR
-            # -------------------------------------------------
-
+            # OCR
             text = perform_ocr(
                 image
             )
