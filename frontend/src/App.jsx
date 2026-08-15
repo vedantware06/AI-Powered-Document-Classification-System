@@ -1,406 +1,358 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_URL = "https://ai-document-classification-backend.onrender.com";
+const API_URL =
+  "https://ai-document-classification-backend.onrender.com";
 
 function App() {
-
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // NEW FEATURE
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
 
-
-  // ==========================
-  // LOAD HISTORY ON START
-  // ==========================
+  // Face Verification
+  const [faceFile, setFaceFile] = useState(null);
+  const [faceLoading, setFaceLoading] = useState(false);
+  const [faceResult, setFaceResult] = useState(null);
 
   useEffect(() => {
-
     loadHistory();
-
   }, []);
 
-
-  // ==========================
-  // LOAD HISTORY FUNCTION
-  // ==========================
+  // =========================
+  // LOAD HISTORY
+  // =========================
 
   const loadHistory = async () => {
-
     try {
-
       const response = await axios.get(
         `${API_URL}/history`,
         {
-          timeout: 30000
+          timeout: 30000,
         }
       );
 
       setHistory(response.data);
-
     } catch (error) {
-
-      console.error(
-        "History loading error:",
-        error
-      );
-
+      console.error("History loading error:", error);
     }
-
   };
 
+  // =========================
+  // FILE SELECT
+  // =========================
 
-  // ==========================
-  // DOWNLOAD CLASSIFICATION REPORT
-  // ==========================
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+
+    setFile(selectedFile || null);
+    setResult(null);
+  };
+
+  // =========================
+  // UPLOAD DOCUMENT
+  // =========================
+
+  const uploadFile = async () => {
+    if (!file) {
+      alert("Please select a document first!");
+      return;
+    }
+
+    setLoading(true);
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/upload`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 120000,
+        }
+      );
+
+      setResult(response.data);
+
+      await loadHistory();
+    } catch (error) {
+      console.error("Upload error:", error);
+
+      if (error.response) {
+        alert(
+          "Backend Error\n\n" +
+            "Status: " +
+            error.response.status +
+            "\n\n" +
+            JSON.stringify(error.response.data)
+        );
+      } else if (error.request) {
+        alert(
+          "Backend is not responding.\n\nPlease check your backend."
+        );
+      } else {
+        alert("Error:\n\n" + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================
+  // FACE VERIFICATION
+  // =========================
+
+  const handleFaceFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+
+    setFaceFile(selectedFile || null);
+    setFaceResult(null);
+  };
+
+  const verifyFace = async () => {
+    if (!faceFile) {
+      alert("Please select a face image first!");
+      return;
+    }
+
+    setFaceLoading(true);
+    setFaceResult(null);
+
+    const formData = new FormData();
+
+    formData.append("file", faceFile);
+
+    try {
+      /*
+        IMPORTANT:
+
+        हा endpoint backend मध्ये अजून create केलेला
+        नसेल तर 404 येईल.
+
+        Backend endpoint:
+        POST /face-verify
+      */
+
+      const response = await axios.post(
+        `${API_URL}/face-verify`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 120000,
+        }
+      );
+
+      setFaceResult(response.data);
+    } catch (error) {
+      console.error("Face verification error:", error);
+
+      if (error.response?.status === 404) {
+        setFaceResult({
+          status: "Not Connected",
+          message:
+            "Face Verification backend endpoint is not available yet.",
+        });
+      } else {
+        setFaceResult({
+          status: "Error",
+          message:
+            "Face Verification service is currently unavailable.",
+        });
+      }
+    } finally {
+      setFaceLoading(false);
+    }
+  };
+
+  // =========================
+  // DOWNLOAD REPORT
+  // =========================
 
   const downloadReport = () => {
-
     if (!result) {
-
-      alert(
-        "Please upload a document first!"
-      );
-
+      alert("Please upload a document first!");
       return;
-
     }
 
-
-    const reportWindow =
-      window.open(
-        "",
-        "_blank"
-      );
-
+    const reportWindow = window.open("", "_blank");
 
     if (!reportWindow) {
-
       alert(
-        "Please allow pop-ups in your browser to download the report."
+        "Please allow pop-ups in your browser."
       );
-
       return;
-
     }
 
-
     reportWindow.document.write(`
-
       <html>
-
-        <head>
-
-          <title>
-            AI Classification Report
-          </title>
-
-          <style>
-
-            body {
-
-              font-family:
-                Arial,
-                sans-serif;
-
-              padding: 40px;
-
-              color: #111827;
-
-              line-height: 1.6;
-
-            }
-
-
-            h1 {
-
-              text-align: center;
-
-              color: #2563eb;
-
-              margin-bottom: 10px;
-
-            }
-
-
-            .subtitle {
-
-              text-align: center;
-
-              color: #64748b;
-
-              margin-bottom: 35px;
-
-            }
-
-
-            h2 {
-
-              color: #2563eb;
-
-              border-bottom:
-                2px solid #2563eb;
-
-              padding-bottom: 8px;
-
-              margin-top: 30px;
-
-            }
-
-
-            .details {
-
-              border:
-                1px solid #d1d5db;
-
-              border-radius: 8px;
-
-              overflow: hidden;
-
-            }
-
-
-            .row {
-
-              display: flex;
-
-              padding: 12px;
-
-              border-bottom:
-                1px solid #e5e7eb;
-
-            }
-
-
-            .row:last-child {
-
-              border-bottom: none;
-
-            }
-
-
-            .label {
-
-              width: 180px;
-
-              font-weight: bold;
-
-            }
-
-
-            .value {
-
-              flex: 1;
-
-            }
-
-
-            .summary,
-            .ocr {
-
-              background: #f3f4f6;
-
-              padding: 18px;
-
-              border-radius: 8px;
-
-              white-space: pre-wrap;
-
-              word-wrap: break-word;
-
-            }
-
-
-            .footer {
-
-              margin-top: 50px;
-
-              padding-top: 15px;
-
-              border-top:
-                1px solid #d1d5db;
-
-              text-align: center;
-
-              font-size: 12px;
-
-              color: #6b7280;
-
-            }
-
-          </style>
-
-        </head>
-
-
-        <body>
-
-          <h1>
-            📄 AI Powered Document Classification Report
-          </h1>
-
-
-          <div class="subtitle">
-            Automated Document Analysis Report
+      <head>
+        <title>AI Classification Report</title>
+
+        <style>
+
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            color: #111827;
+            line-height: 1.6;
+          }
+
+          h1 {
+            text-align: center;
+            color: #2563eb;
+          }
+
+          h2 {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+          }
+
+          .details {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+          }
+
+          .row {
+            display: flex;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .label {
+            width: 180px;
+            font-weight: bold;
+          }
+
+          .value {
+            flex: 1;
+          }
+
+          .box {
+            background: #f3f4f6;
+            padding: 18px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+          }
+
+          .footer {
+            margin-top: 50px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+          }
+
+        </style>
+      </head>
+
+      <body>
+
+        <h1>
+          📄 AI Powered Document Classification Report
+        </h1>
+
+        <p style="text-align:center;">
+          Automated Document Analysis Report
+        </p>
+
+        <h2>📊 Classification Details</h2>
+
+        <div class="details">
+
+          <div class="row">
+            <div class="label">Filename</div>
+            <div class="value">
+              ${result.filename || "N/A"}
+            </div>
           </div>
 
-
-          <h2>
-            📊 Classification Details
-          </h2>
-
-
-          <div class="details">
-
-
-            <div class="row">
-
-              <div class="label">
-                Filename
-              </div>
-
-              <div class="value">
-                ${result.filename || "N/A"}
-              </div>
-
+          <div class="row">
+            <div class="label">Category</div>
+            <div class="value">
+              ${result.category || "N/A"}
             </div>
-
-
-            <div class="row">
-
-              <div class="label">
-                Category
-              </div>
-
-              <div class="value">
-                ${result.category || "N/A"}
-              </div>
-
-            </div>
-
-
-            <div class="row">
-
-              <div class="label">
-                Confidence
-              </div>
-
-              <div class="value">
-                ${result.confidence || "N/A"}
-              </div>
-
-            </div>
-
-
-            <div class="row">
-
-              <div class="label">
-                Verification
-              </div>
-
-              <div class="value">
-                ${result.verification || "N/A"}
-              </div>
-
-            </div>
-
-
-            <div class="row">
-
-              <div class="label">
-                Fraud Detection
-              </div>
-
-              <div class="value">
-                ${result.fraud_status || "N/A"}
-              </div>
-
-            </div>
-
-
           </div>
 
-
-          <h2>
-            📝 AI Auto Summary
-          </h2>
-
-
-          <div class="summary">
-
-            ${result.summary ||
-              "No summary available."}
-
+          <div class="row">
+            <div class="label">Confidence</div>
+            <div class="value">
+              ${result.confidence || "N/A"}
+            </div>
           </div>
 
-
-          <h2>
-            📜 Extracted OCR Text
-          </h2>
-
-
-          <div class="ocr">
-
-            ${result.text ||
-              "No text extracted."}
-
+          <div class="row">
+            <div class="label">Verification</div>
+            <div class="value">
+              ${result.verification || "N/A"}
+            </div>
           </div>
 
-
-          <div class="footer">
-
-            Generated by
-            AI Powered Document Classification System
-
-            <br />
-
-            AI-Based OCR • Classification • Verification • Fraud Detection
-
+          <div class="row">
+            <div class="label">Fraud Detection</div>
+            <div class="value">
+              ${result.fraud_status || "N/A"}
+            </div>
           </div>
 
+        </div>
 
-        </body>
+        <h2>📝 AI Auto Summary</h2>
 
+        <div class="box">
+          ${result.summary || "No summary available."}
+        </div>
+
+        <h2>📜 Extracted OCR Text</h2>
+
+        <div class="box">
+          ${result.text || "No text extracted."}
+        </div>
+
+        <div class="footer">
+
+          Generated by AI Powered Document Classification System
+
+          <br />
+
+          AI-Based OCR • Classification • Verification • Fraud Detection
+
+        </div>
+
+      </body>
       </html>
-
     `);
-
 
     reportWindow.document.close();
 
-
-    // Open print dialog
-
     setTimeout(() => {
-
       reportWindow.print();
-
     }, 500);
-
   };
 
+  // =========================
+  // DASHBOARD DATA
+  // =========================
 
-  // ==========================
-  // Dashboard Calculation
-  // ==========================
-
-  const totalDocuments =
-    history.length;
-
+  const totalDocuments = history.length;
 
   const categories = [
     ...new Set(
       history.map(
         (item) => item.category
       )
-    )
+    ),
   ].length;
-
 
   const avgConfidence =
     history.length > 0
@@ -416,10 +368,9 @@ function App() {
         ).toFixed(1)
       : 0;
 
-
-  // ==========================
+  // =========================
   // CATEGORY LIST
-  // ==========================
+  // =========================
 
   const categoryList = [
     "All",
@@ -427,967 +378,619 @@ function App() {
       history.map(
         (item) => item.category
       )
-    )
+    ),
   ];
 
-
-  // ==========================
-  // SEARCH + FILTER
-  // ==========================
+  // =========================
+  // SEARCH FILTER
+  // =========================
 
   const filteredHistory =
     history.filter((item) => {
+      const search =
+        searchTerm.toLowerCase();
 
       const matchesSearch =
         item.filename
           ?.toLowerCase()
-          .includes(
-            searchTerm.toLowerCase()
-          ) ||
+          .includes(search) ||
         item.category
           ?.toLowerCase()
-          .includes(
-            searchTerm.toLowerCase()
-          );
-
+          .includes(search);
 
       const matchesCategory =
         categoryFilter === "All" ||
         item.category === categoryFilter;
 
-
       return (
         matchesSearch &&
         matchesCategory
       );
-
     });
 
-
-  // ==========================
-  // File Selection
-  // ==========================
-
-  const handleFileChange = (e) => {
-
-    setFile(
-      e.target.files[0]
-    );
-
-    setResult(null);
-
-  };
-
-
-  // ==========================
-  // Upload Document
-  // ==========================
-
-  const uploadFile = async () => {
-
-    if (!file) {
-
-      alert(
-        "Please select a file first!"
-      );
-
-      return;
-
-    }
-
-
-    setLoading(true);
-
-
-    const formData =
-      new FormData();
-
-
-    formData.append(
-      "file",
-      file
-    );
-
-
-    try {
-
-      console.log(
-        "Uploading:",
-        file.name
-      );
-
-
-      // ==========================
-      // UPLOAD
-      // ==========================
-
-      const response =
-        await axios.post(
-          `${API_URL}/upload`,
-          formData,
-          {
-
-            headers: {
-
-              "Content-Type":
-                "multipart/form-data"
-
-            },
-
-            timeout: 120000
-
-          }
-        );
-
-
-      console.log(
-        "Upload Response:",
-        response.data
-      );
-
-
-      // SHOW RESULT
-
-      setResult(
-        response.data
-      );
-
-
-      // ==========================
-      // REFRESH HISTORY
-      // ==========================
-
-      await loadHistory();
-
-
-    } catch (error) {
-
-      console.error(
-        "UPLOAD ERROR:",
-        error
-      );
-
-
-      if (error.response) {
-
-        alert(
-          "Backend Error\n\n" +
-          "Status: " +
-          error.response.status +
-          "\n\n" +
-          JSON.stringify(
-            error.response.data
-          )
-        );
-
-      }
-
-
-      else if (error.request) {
-
-        alert(
-          "Backend is not responding!\n\n" +
-          "Please check your backend."
-        );
-
-      }
-
-
-      else {
-
-        alert(
-          "Error:\n\n" +
-          error.message
-        );
-
-      }
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  };
-
-
-  // ==========================
-  // UI
-  // ==========================
+  // =========================
+  // MAIN UI
+  // =========================
 
   return (
-
     <div
-
       style={{
-
-        background: "#0f172a",
-
         minHeight: "100vh",
-
+        background: "#0f172a",
         color: "white",
-
-        display: "flex",
-
-        flexDirection: "column",
-
-        alignItems: "center",
-
-        fontFamily: "Arial",
-
-        padding: "30px"
-
+        fontFamily: "Arial, sans-serif",
+        padding: "25px",
       }}
-
     >
 
-
-      {/* ==========================
-          TITLE
-      ========================== */}
-
-      <h1
-
-        style={{
-
-          fontSize: "48px",
-
-          textAlign: "center"
-
-        }}
-
-      >
-
-        📄 AI Powered Document Classification System
-
-      </h1>
-
-
-      <p>
-
-        Upload your document and classify it using AI
-
-      </p>
-
-
-      {/* ==========================
-          FILE INPUT
-      ========================== */}
-
-      <input
-
-        type="file"
-
-        accept=".pdf,.jpg,.jpeg,.png"
-
-        onChange={handleFileChange}
-
-        style={{
-
-          marginTop: "20px"
-
-        }}
-
-      />
-
-
-      {/* ==========================
-          SELECTED FILE
-      ========================== */}
-
-      {file && (
-
-        <p
-
-          style={{
-
-            color: "#22c55e",
-
-            fontWeight: "bold"
-
-          }}
-
-        >
-
-          Selected File: {file.name}
-
-        </p>
-
-      )}
-
-
-      {/* ==========================
-          UPLOAD BUTTON
-      ========================== */}
-
-      <button
-
-        onClick={uploadFile}
-
-        disabled={loading}
-
-        style={{
-
-          marginTop: "20px",
-
-          padding: "12px 30px",
-
-          background:
-
-            loading
-
-              ? "#64748b"
-
-              : "#2563eb",
-
-          color: "white",
-
-          border: "none",
-
-          borderRadius: "8px",
-
-          fontSize: "16px",
-
-          cursor:
-
-            loading
-
-              ? "not-allowed"
-
-              : "pointer"
-
-        }}
-
-      >
-
-        {loading
-
-          ? "Processing..."
-
-          : "Upload Document"
-
-        }
-
-      </button>
-
-
-      {/* ==========================
-          DASHBOARD
-      ========================== */}
+      {/* =========================
+          HEADER
+      ========================= */}
 
       <div
-
         style={{
-
-          display: "flex",
-
-          gap: "20px",
-
-          marginTop: "40px",
-
-          flexWrap: "wrap",
-
-          justifyContent: "center"
-
+          textAlign: "center",
+          marginBottom: "25px",
         }}
+      >
 
+        <h1
+          style={{
+            fontSize: "32px",
+            marginBottom: "8px",
+          }}
+        >
+          📄 AI Powered Document Classification System
+        </h1>
+
+        <p
+          style={{
+            color: "#94a3b8",
+          }}
+        >
+          Upload your document and classify it using AI
+        </p>
+
+      </div>
+
+
+      {/* =========================
+          UPLOAD CARD
+      ========================= */}
+
+      <div
+        style={{
+          maxWidth: "850px",
+          margin: "auto",
+          background: "#1e293b",
+          padding: "25px",
+          borderRadius: "14px",
+          textAlign: "center",
+          boxShadow:
+            "0 8px 25px rgba(0,0,0,0.25)",
+        }}
+      >
+
+        <h2
+          style={{
+            color: "#38bdf8",
+            marginTop: 0,
+          }}
+        >
+          📤 Upload Document
+        </h2>
+
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={handleFileChange}
+          style={{
+            margin: "15px",
+          }}
+        />
+
+        {file && (
+          <p
+            style={{
+              color: "#22c55e",
+              fontWeight: "bold",
+            }}
+          >
+            Selected File: {file.name}
+          </p>
+        )}
+
+        <button
+          onClick={uploadFile}
+          disabled={loading}
+          style={{
+            padding: "12px 30px",
+            border: "none",
+            borderRadius: "8px",
+            background:
+              loading
+                ? "#64748b"
+                : "#2563eb",
+            color: "white",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor:
+              loading
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {loading
+            ? "⏳ Processing..."
+            : "🚀 Upload Document"}
+        </button>
+
+      </div>
+
+
+      {/* =========================
+          DASHBOARD CARDS
+      ========================= */}
+
+      <div
+        style={{
+          maxWidth: "900px",
+          margin: "25px auto",
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit,minmax(180px,1fr))",
+          gap: "15px",
+        }}
       >
 
         <Card
-
           title="📄 Total Documents"
-
           value={totalDocuments}
-
         />
 
-
         <Card
-
           title="📂 Categories"
-
           value={categories}
-
         />
 
-
         <Card
-
           title="🎯 Accuracy"
-
           value={`${avgConfidence}%`}
-
         />
 
-
         <Card
-
           title="🤖 AI Status"
-
           value="Active"
-
         />
 
       </div>
 
 
-      {/* =================================================
+      {/* =========================
           CLASSIFICATION RESULT
-      ================================================= */}
+      ========================= */}
 
       {result && (
-
         <div
-
           style={{
-
-            marginTop: "40px",
-
-            width: "80%",
-
+            maxWidth: "850px",
+            margin: "25px auto",
             background: "#1e293b",
-
             padding: "25px",
-
-            borderRadius: "10px"
-
+            borderRadius: "14px",
           }}
-
         >
 
           <h2
-
             style={{
-
+              textAlign: "center",
               color: "#38bdf8",
-
-              textAlign: "center"
-
             }}
-
           >
-
             📊 Classification Result
-
           </h2>
 
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit,minmax(180px,1fr))",
+              gap: "12px",
+            }}
+          >
 
-          <p>
+            <InfoBox
+              title="📄 Filename"
+              value={result.filename}
+            />
 
-            📄 <b>Filename:</b>{" "}
+            <InfoBox
+              title="📂 Category"
+              value={result.category}
+            />
 
-            {result.filename}
+            <InfoBox
+              title="🎯 Confidence"
+              value={result.confidence}
+            />
 
-          </p>
+            <InfoBox
+              title="✅ Verification"
+              value={result.verification}
+            />
 
+            <InfoBox
+              title="🛡️ Fraud Detection"
+              value={result.fraud_status}
+            />
 
-          <p>
-
-            📂 <b>Category:</b>{" "}
-
-            {result.category}
-
-          </p>
-
-
-          <p>
-
-            🎯 <b>Confidence:</b>{" "}
-
-            {result.confidence}
-
-          </p>
-
-
-          <p>
-
-            ✅ <b>Verification:</b>{" "}
-
-            {result.verification}
-
-          </p>
-
-
-          <p>
-
-            🛡️ <b>Fraud Detection:</b>{" "}
-
-            {result.fraud_status}
-
-          </p>
+          </div>
 
 
-          {/* ==========================
-              AI SUMMARY
-          ========================== */}
+          {/* AI SUMMARY */}
 
           <div
-
             style={{
-
-              marginTop: "25px",
-
+              marginTop: "20px",
               background: "#0f172a",
-
-              padding: "20px",
-
-              borderRadius: "10px"
-
+              padding: "18px",
+              borderRadius: "10px",
             }}
-
           >
 
             <h3
-
               style={{
-
-                color: "#38bdf8"
-
+                color: "#38bdf8",
               }}
-
             >
-
               📝 AI Auto Summary
-
             </h3>
 
-
             <p
-
               style={{
-
-                lineHeight: "1.6"
-
+                lineHeight: "1.6",
+                color: "#cbd5e1",
               }}
-
             >
-
               {result.summary ||
-
                 "No summary available."}
-
             </p>
 
           </div>
 
 
-          {/* ==========================
-              OCR TEXT
-          ========================== */}
-
-          <h3
-
-            style={{
-
-              marginTop: "25px"
-
-            }}
-
-          >
-
-            📜 Extracted Text
-
-          </h3>
-
+          {/* OCR */}
 
           <div
-
             style={{
-
-              background: "#0f172a",
-
-              padding: "15px",
-
-              maxHeight: "300px",
-
-              overflowY: "auto",
-
-              whiteSpace: "pre-wrap",
-
-              borderRadius: "8px"
-
+              marginTop: "20px",
             }}
-
           >
 
-            {result.text ||
+            <h3>
+              📜 Extracted Text
+            </h3>
 
-              "No text extracted."}
+            <div
+              style={{
+                background: "#0f172a",
+                padding: "15px",
+                maxHeight: "250px",
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                borderRadius: "8px",
+                color: "#cbd5e1",
+              }}
+            >
+              {result.text ||
+                "No text extracted."}
+            </div>
 
           </div>
 
 
-          {/* =================================================
-              DOWNLOAD REPORT BUTTON
-          ================================================= */}
+          {/* REPORT */}
 
           <div
-
             style={{
-
-              display: "flex",
-
-              justifyContent: "center",
-
-              marginTop: "25px"
-
+              textAlign: "center",
+              marginTop: "20px",
             }}
-
           >
 
             <button
-
               onClick={downloadReport}
-
               style={{
-
-                padding: "13px 28px",
-
+                padding: "12px 25px",
                 background: "#16a34a",
-
                 color: "white",
-
                 border: "none",
-
                 borderRadius: "8px",
-
-                fontSize: "16px",
-
                 fontWeight: "bold",
-
                 cursor: "pointer",
-
-                boxShadow:
-                  "0 4px 10px rgba(0,0,0,0.3)"
-
               }}
-
             >
-
               📥 Download Classification Report
-
             </button>
 
           </div>
 
-
         </div>
-
       )}
 
 
-      {/* =================================================
-          HISTORY
-      ================================================= */}
+      {/* =========================
+          FACE VERIFICATION
+      ========================= */}
 
-      {history.length > 0 && (
+      <div
+        style={{
+          maxWidth: "850px",
+          margin: "25px auto",
+          background: "#1e293b",
+          padding: "25px",
+          borderRadius: "14px",
+        }}
+      >
+
+        <h2
+          style={{
+            textAlign: "center",
+            color: "#a78bfa",
+          }}
+        >
+          👤 Face Verification
+        </h2>
+
+        <p
+          style={{
+            textAlign: "center",
+            color: "#94a3b8",
+          }}
+        >
+          Upload a face image for identity verification
+        </p>
 
         <div
-
           style={{
-
-            marginTop: "40px",
-
-            width: "80%",
-
-            background: "#1e293b",
-
-            padding: "25px",
-
-            borderRadius: "10px",
-
-            overflowX: "auto"
-
+            textAlign: "center",
           }}
+        >
 
+          <input
+            type="file"
+            accept=".jpg,.jpeg,.png"
+            onChange={handleFaceFileChange}
+          />
+
+          {faceFile && (
+            <p
+              style={{
+                color: "#22c55e",
+              }}
+            >
+              Selected: {faceFile.name}
+            </p>
+          )}
+
+          <button
+            onClick={verifyFace}
+            disabled={faceLoading}
+            style={{
+              marginTop: "10px",
+              padding: "11px 25px",
+              background:
+                faceLoading
+                  ? "#64748b"
+                  : "#7c3aed",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor:
+                faceLoading
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            {faceLoading
+              ? "⏳ Verifying..."
+              : "🔍 Verify Face"}
+          </button>
+
+        </div>
+
+
+        {faceResult && (
+          <div
+            style={{
+              marginTop: "20px",
+              background: "#0f172a",
+              padding: "15px",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
+          >
+
+            <h3
+              style={{
+                color:
+                  faceResult.status ===
+                  "Verified"
+                    ? "#22c55e"
+                    : "#f59e0b",
+              }}
+            >
+              {faceResult.status}
+            </h3>
+
+            <p>
+              {faceResult.message ||
+                faceResult.result ||
+                "Face verification response received."}
+            </p>
+
+          </div>
+        )}
+
+      </div>
+
+
+      {/* =========================
+          HISTORY
+      ========================= */}
+
+      {history.length > 0 && (
+        <div
+          style={{
+            maxWidth: "1000px",
+            margin: "25px auto",
+            background: "#1e293b",
+            padding: "25px",
+            borderRadius: "14px",
+            overflowX: "auto",
+          }}
         >
 
           <h2
-
             style={{
-
+              textAlign: "center",
               color: "#38bdf8",
-
-              textAlign: "center"
-
             }}
-
           >
-
             📂 Upload History
-
           </h2>
 
 
-          {/* =================================================
-              NEW: SEARCH + FILTER
-          ================================================= */}
+          {/* SEARCH */}
 
           <div
-
             style={{
-
               display: "flex",
-
-              gap: "15px",
-
-              marginBottom: "20px",
-
+              gap: "10px",
+              justifyContent: "center",
               flexWrap: "wrap",
-
-              justifyContent: "center"
-
+              marginBottom: "15px",
             }}
-
           >
 
-            {/* SEARCH */}
-
             <input
-
               type="text"
-
               placeholder="🔍 Search filename or category..."
-
               value={searchTerm}
-
               onChange={(e) =>
-                setSearchTerm(
-                  e.target.value
-                )
+                setSearchTerm(e.target.value)
               }
-
               style={{
-
-                padding: "12px",
-
-                width: "300px",
-
+                padding: "11px",
+                width: "280px",
                 borderRadius: "8px",
-
                 border:
                   "1px solid #475569",
-
                 background: "#0f172a",
-
                 color: "white",
-
-                fontSize: "15px"
-
               }}
-
             />
 
 
-            {/* CATEGORY FILTER */}
-
             <select
-
               value={categoryFilter}
-
               onChange={(e) =>
-                setCategoryFilter(
-                  e.target.value
-                )
+                setCategoryFilter(e.target.value)
               }
-
               style={{
-
-                padding: "12px",
-
+                padding: "11px",
                 borderRadius: "8px",
-
                 border:
                   "1px solid #475569",
-
                 background: "#0f172a",
-
                 color: "white",
-
-                fontSize: "15px"
-
               }}
-
             >
 
               {categoryList.map(
                 (category) => (
-
                   <option
-
                     key={category}
-
                     value={category}
-
                   >
-
                     {category}
-
                   </option>
-
                 )
               )}
 
             </select>
 
 
-            {/* CLEAR BUTTON */}
-
             <button
-
               onClick={() => {
-
                 setSearchTerm("");
-
                 setCategoryFilter("All");
-
               }}
-
               style={{
-
-                padding: "12px 20px",
-
+                padding: "11px 18px",
                 background: "#475569",
-
                 color: "white",
-
                 border: "none",
-
                 borderRadius: "8px",
-
-                cursor: "pointer"
-
+                cursor: "pointer",
               }}
-
             >
-
               Clear
-
             </button>
 
           </div>
 
 
-          {/* SEARCH RESULT COUNT */}
-
           <p
-
             style={{
-
               textAlign: "center",
-
-              color: "#94a3b8"
-
+              color: "#94a3b8",
             }}
-
           >
-
             Showing{" "}
-
             <b>
-
               {filteredHistory.length}
-
             </b>{" "}
-
             of{" "}
-
             <b>
-
               {history.length}
-
             </b>{" "}
-
             documents
-
           </p>
 
 
-          {/* ==========================
-              HISTORY TABLE
-          ========================== */}
+          {/* TABLE */}
 
           <table
-
             style={{
-
               width: "100%",
-
-              borderCollapse: "collapse"
-
+              borderCollapse: "collapse",
+              marginTop: "15px",
             }}
-
           >
 
             <thead>
 
               <tr
-
                 style={{
-
-                  background: "#2563eb"
-
+                  background: "#2563eb",
                 }}
-
               >
 
-                <th
-
-                  style={{
-
-                    padding: "10px"
-
-                  }}
-
-                >
-
+                <th style={thStyle}>
                   ID
-
                 </th>
 
-
-                <th
-
-                  style={{
-
-                    padding: "10px"
-
-                  }}
-
-                >
-
+                <th style={thStyle}>
                   Filename
-
                 </th>
 
-
-                <th
-
-                  style={{
-
-                    padding: "10px"
-
-                  }}
-
-                >
-
+                <th style={thStyle}>
                   Category
-
                 </th>
 
-
-                <th
-
-                  style={{
-
-                    padding: "10px"
-
-                  }}
-
-                >
-
+                <th style={thStyle}>
                   Confidence
-
                 </th>
 
               </tr>
@@ -1397,116 +1000,53 @@ function App() {
 
             <tbody>
 
-              {filteredHistory.length > 0 ? (
-
+              {filteredHistory.length >
+              0 ? (
                 filteredHistory.map(
                   (item) => (
-
                     <tr
-
                       key={item.id}
-
                       style={{
-
                         textAlign: "center",
-
                         borderBottom:
-                          "1px solid #334155"
-
+                          "1px solid #334155",
                       }}
-
                     >
 
-                      <td
-
-                        style={{
-
-                          padding: "10px"
-
-                        }}
-
-                      >
-
+                      <td style={tdStyle}>
                         {item.id}
-
                       </td>
 
-
-                      <td
-
-                        style={{
-
-                          padding: "10px"
-
-                        }}
-
-                      >
-
+                      <td style={tdStyle}>
                         {item.filename}
-
                       </td>
 
-
-                      <td
-
-                        style={{
-
-                          padding: "10px"
-
-                        }}
-
-                      >
-
+                      <td style={tdStyle}>
                         {item.category}
-
                       </td>
 
-
-                      <td
-
-                        style={{
-
-                          padding: "10px"
-
-                        }}
-
-                      >
-
+                      <td style={tdStyle}>
                         {item.confidence}
-
                       </td>
 
                     </tr>
-
                   )
                 )
-
               ) : (
-
                 <tr>
 
                   <td
-
                     colSpan="4"
-
                     style={{
-
                       padding: "25px",
-
                       textAlign: "center",
-
-                      color: "#94a3b8"
-
+                      color: "#94a3b8",
                     }}
-
                   >
-
                     🔍 No matching documents found.
-
                   </td>
 
                 </tr>
-
               )}
 
             </tbody>
@@ -1514,71 +1054,114 @@ function App() {
           </table>
 
         </div>
-
       )}
 
     </div>
-
   );
-
 }
 
 
-// =========================================================
+// =========================
 // CARD COMPONENT
-// =========================================================
+// =========================
 
 function Card({
   title,
-  value
+  value,
 }) {
-
   return (
-
     <div
-
       style={{
-
         background: "#1e293b",
-
-        padding: "25px",
-
-        width: "220px",
-
+        padding: "18px",
         borderRadius: "12px",
-
-        textAlign: "center"
-
+        textAlign: "center",
+        boxShadow:
+          "0 5px 15px rgba(0,0,0,0.2)",
       }}
-
     >
 
       <h2
-
         style={{
-
-          color: "#38bdf8"
-
+          color: "#38bdf8",
+          margin: "5px",
         }}
-
       >
-
         {value}
-
       </h2>
 
-
-      <p>
-
+      <p
+        style={{
+          color: "#cbd5e1",
+          margin: "5px",
+        }}
+      >
         {title}
-
       </p>
 
     </div>
-
   );
-
 }
 
+
+// =========================
+// INFO BOX
+// =========================
+
+function InfoBox({
+  title,
+  value,
+}) {
+  return (
+    <div
+      style={{
+        background: "#0f172a",
+        padding: "15px",
+        borderRadius: "8px",
+      }}
+    >
+
+      <div
+        style={{
+          color: "#94a3b8",
+          fontSize: "13px",
+          marginBottom: "6px",
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          fontWeight: "bold",
+          color: "white",
+        }}
+      >
+        {value || "N/A"}
+      </div>
+
+    </div>
+  );
+}
+
+
+// =========================
+// TABLE STYLES
+// =========================
+
+const thStyle = {
+  padding: "10px",
+  fontSize: "14px",
+};
+
+const tdStyle = {
+  padding: "10px",
+  color: "#cbd5e1",
+};
+
+
+// =========================
+// EXPORT
+// =========================
 
 export default App;
