@@ -8,4 +8,5 @@ pillow
 python-dotenv
 psycopg2-binary
 gunicorn
-joblibopencv-python-headless
+joblib
+opencv-python-headless
