@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 const API_URL =
-  "https://ai-document-classification-backend.onrender.com";
+  "https://ai-document-classification-backend-docker.onrender.com";
 
 function App() {
   const [file, setFile] = useState(null);
